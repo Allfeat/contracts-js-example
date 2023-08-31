@@ -5,6 +5,7 @@ import path from "path";
 import { cryptoWaitReady } from '@polkadot/util-crypto';
 import { BN, BN_ONE } from "@polkadot/util";
 import type { WeightV2 } from '@polkadot/types/interfaces'
+import {connectToNode} from "./node";
 
 function loadContract() {
     const contract_path = path.join(__dirname, "..", "contracts", "aft34", "my_aft34.contract");
@@ -25,29 +26,15 @@ async function main() {
     // (Advanced, development-only) add with an implied dev seed and hard derivation
     const alicePair = new Keyring({ type: 'sr25519' }).addFromUri('//Alice', { name: 'Alice default' });
     const contractMetadata = loadContract();
+    const wasm = contractMetadata.source.wasm;
 
-    console.log("Initializing connection to node...")
-
-    const endpoint: string = "ws://localhost:9944";
-    const wsProvider = new WsProvider(endpoint);
-    const api = await ApiPromise.create({ provider: wsProvider });
-
-    console.log(
-        `Connected to node: ${endpoint} | ${(await api.rpc.system.chain()).toHuman()} [ss58: ${
-            api.registry.chainSS58
-        }]`
-    );
+    const api = await connectToNode("ws://localhost:9944");
 
     console.log("Initializing my_aft34 code deployment to chain...")
-
-    const wasm: string = contractMetadata.source.wasm;
 
     const code = new CodePromise(api, contractMetadata, wasm);
 
     console.log("Dry-running the tx...")
-
-    const MAX_CALL_WEIGHT = new BN(5_000_000_000_000).isub(BN_ONE);
-    const PROOFSIZE = new BN(1_000_000);
 
     const gasLimit = api?.registry.createType('WeightV2', {
             refTime: 445076379,
@@ -58,7 +45,7 @@ async function main() {
     const storageDepositLimit = null
     // used to derive contract address,
     // use null to prevent duplicate contracts
-    const salt = new Uint8Array()
+    const salt = null
     // balance to transfer to the contract account, formerly known as "endowment".
     // use only with payable constructors, will fail otherwise.
     // const value = api.registry.createType('Balance', 1000)
